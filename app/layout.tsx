@@ -50,15 +50,15 @@ export const metadata: Metadata = {
   
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
-      { url: '/favicon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon-256x256.png', sizes: '256x256', type: 'image/png' },
-      { url: '/favicon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/App_logo_192.jpg', sizes: '192x192', type: 'image/jpeg' },
+      { url: '/App_logo_256.jpg', sizes: '256x256', type: 'image/jpeg' },
+      { url: '/App_logo_384.jpg', sizes: '384x384', type: 'image/jpeg' },
+      { url: '/App_logo_512.jpg', sizes: '512x512', type: 'image/jpeg' },
     ],
     apple: [
-      { url: '/favicon-180x180.png', sizes: '180x180', type: 'image/png' },
+      { url: '/App_logo_192.jpg', sizes: '192x192', type: 'image/jpeg' },
     ],
-    shortcut: '/favicon.ico',
+    shortcut: '/App_logo_192.jpg',
   },
 
   manifest: '/manifest.json',
