@@ -394,7 +394,7 @@ const TapToUnmuteScreen = ({ onUnmuteClick }: { onUnmuteClick: () => void }) => 
             <img
               src="/DeeniTV-V-2.png"
               alt="Deeni.tv"
-              className={isMobile ? 'h-8' : isTablet ? 'h-10' : 'h-12'}
+              className={isMobile ? 'h-5' : isTablet ? 'h-8' : 'h-12'}
             />
           </motion.div>
 
