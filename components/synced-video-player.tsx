@@ -261,7 +261,7 @@ const StartScreen = ({ onPlayClick }: { onPlayClick: () => void }) => {
             <img 
               src="/DeeniTV-V-2.png" 
               alt="Deeni.tv - Your Spiritual TV Experience"
-              className={isMobile ? 'h-5' : isTablet ? 'h-10' : 'h-12'}
+              className={isMobile ? 'h-5' : isTablet ? 'h-10' : 'h-10'}
             />
           </motion.div>
           
@@ -312,7 +312,7 @@ const StartScreen = ({ onPlayClick }: { onPlayClick: () => void }) => {
               onClick={onPlayClick}
               size={isMobile ? 'default' : 'lg'}
               className={`relative group bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white rounded-full shadow-2xl shadow-primary/30 overflow-hidden ${
-                isMobile ? 'px-5 py-3 text-sm' : isTablet ? 'px-6 py-4 text-base' : 'px-8 py-5 text-lg'
+                isMobile ? 'px-3 py-3 text-sm' : isTablet ? 'px-4 py-4 text-base' : 'px-6 py-6 text-lg'
               }`}
             >
               <span className="relative z-10 flex items-center gap-2">
