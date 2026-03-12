@@ -104,7 +104,7 @@ const ChannelSelectorModal = ({
                   <div className="p-2 bg-primary/20 rounded-xl">
                     <Globe className="h-5 w-5 text-primary" />
                   </div>
-                  <h2 className="text-xl font-bold text-white">Select Your Channel</h2>
+                  <h2 className="text-xl font-bold text-white">Select Channel</h2>
                 </div>
                 <Button
                   variant="ghost"
@@ -117,7 +117,7 @@ const ChannelSelectorModal = ({
               </div>
             </div>
             
-            <div className="p-4 border-b border-white/10">
+            {/* <div className="p-4 border-b border-white/10">
               <div className="relative">
                 <input
                   type="text"
@@ -128,7 +128,7 @@ const ChannelSelectorModal = ({
                 />
                 <Globe className="absolute left-3 top-3.5 h-4 w-4 text-white/40" />
               </div>
-            </div>
+            </div> */}
             
             <div className="p-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -261,7 +261,7 @@ const StartScreen = ({ onPlayClick }: { onPlayClick: () => void }) => {
             <img 
               src="/DeeniTV-V-2.png" 
               alt="Deeni.tv - Your Spiritual TV Experience"
-              className={isMobile ? 'h-5' : isTablet ? 'h-10' : 'h-10'}
+              className={isMobile ? 'h-8' : isTablet ? 'h-10' : 'h-12'}
             />
           </motion.div>
           
@@ -312,7 +312,7 @@ const StartScreen = ({ onPlayClick }: { onPlayClick: () => void }) => {
               onClick={onPlayClick}
               size={isMobile ? 'default' : 'lg'}
               className={`relative group bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white rounded-full shadow-2xl shadow-primary/30 overflow-hidden ${
-                isMobile ? 'px-3 py-3 text-sm' : isTablet ? 'px-4 py-4 text-base' : 'px-6 py-6 text-lg'
+                isMobile ? 'px-5 py-3 text-sm' : isTablet ? 'px-6 py-4 text-base' : 'px-8 py-5 text-lg'
               }`}
             >
               <span className="relative z-10 flex items-center gap-2">
@@ -869,7 +869,7 @@ export function SyncedVideoPlayer({
     )
   })
   const [volume, setVolume] = useState(75)
-  const [showVolumeTooltip, setShowVolumeTooltip] = useState(false)
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false)
   const [showTicker, setShowTicker] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showPreviousModal, setShowPreviousModal] = useState(false)
@@ -911,6 +911,14 @@ export function SyncedVideoPlayer({
   // Refs
   const playerRef = useRef<HTMLDivElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hideVolumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Reset the auto-hide timer (both platforms)
+  const resetHideTimer = useCallback(() => {
+    if (hideVolumeTimerRef.current) clearTimeout(hideVolumeTimerRef.current)
+    hideVolumeTimerRef.current = setTimeout(() => setShowVolumeSlider(false), 3000)
+  }, [])
+
   const isMobile = useMediaQuery('(max-width: 768px)')
   const isTablet = useMediaQuery('(min-width: 769px) and (max-width: 1024px)')
   const isDesktop = useMediaQuery('(min-width: 1025px)')
@@ -1492,15 +1500,15 @@ export function SyncedVideoPlayer({
             setPlayerReady(true)
             setIsLoading(false)
             setShowStartScreen(false) // Important: Reset start screen
-            
+
             seekTo(startTime, true)
             play()
-            
+
             const duration = getDuration()
             if (duration && duration > 0) {
               setVideoDuration(duration)
             }
-            
+
             setYouTubeVolume(volume)
             // On iOS keep muted until user taps the unmute button (user gesture required)
             if (!isIOS) {
@@ -1510,9 +1518,9 @@ export function SyncedVideoPlayer({
           },
           onStateChange: (state) => {
             if (!mountedRef.current) return
-            
+
             console.log('🎬 11 YouTube state changed:', state)
-            
+
             if (state === YT_STATE.ENDED) {
               setShowBrandedOverlay(true)
               setIsLoading(false)
@@ -1541,7 +1549,7 @@ export function SyncedVideoPlayer({
               play()
             }
           },
-          onDurationChange: (duration) => {
+          onDurationChange: (duration: number) => {
             if (duration && duration > 0) {
               console.log('📏 Video duration:', duration)
               setVideoDuration(duration)
@@ -1776,8 +1784,33 @@ export function SyncedVideoPlayer({
     loadChannel(channelId)
   }, [loadChannel])
 
-  const handleOpenChannelSelector = useCallback(() => {
+  const handleOpenChannelSelector = useCallback(async () => {
+    // First, show the modal with current channels
     setShowChannelSelector(true)
+
+    // Then, try to refresh channels from API
+    try {
+      const res = await clientFetchWithAuth('https://api.deeniinfotech.com/api/tv-channels')
+      if (res?.data?.length) {
+        const freshChannels = res.data
+        const storedChannels = getStoredApiChannels()
+
+        // Check if there are differences
+        const hasChanges = freshChannels.length !== storedChannels.length ||
+          freshChannels.some((fresh: any, index: number) => {
+            const stored = storedChannels[index]
+            return !stored || fresh.id !== stored.id || fresh.title !== stored.title
+          })
+
+        if (hasChanges) {
+          saveApiChannels(freshChannels)
+          setApiChannels(freshChannels)
+        }
+      }
+    } catch (error) {
+      // Ignore API failure and keep stored channels
+      console.error('Failed to refresh channels', error)
+    }
   }, [])
 
   const syncWithServer = useCallback(async () => {
@@ -2134,24 +2167,45 @@ export function SyncedVideoPlayer({
     }
   }, [destroy])
 
-  const handleVolumeChange = useCallback((value: number[]) => {
-    const newVolume = value[0]
-    setVolume(newVolume)
-    setShowVolumeTooltip(true)
-    setYouTubeVolume(newVolume)
-    if (newVolume > 0 && isMuted) {
-      setIsMuted(false)
+  const handleVolumeChange = useCallback((values: number[]) => {
+    const v = values[0]
+    setVolume(v)
+    setIsMuted(v === 0)
+    setYouTubeVolume(v)
+    if (v === 0) {
+      setYouTubeMuted(true)
+    } else {
       setYouTubeMuted(false)
     }
-    setTimeout(() => setShowVolumeTooltip(false), 1000)
-  }, [isMuted, setYouTubeVolume, setYouTubeMuted])
+    resetHideTimer()
+  }, [setYouTubeVolume, setYouTubeMuted, resetHideTimer])
 
   const toggleMute = useCallback(() => {
-    const newMuted = !isMuted
-    setIsMuted(newMuted)
-    setYouTubeMuted(newMuted)
-    if (!newMuted) setYouTubeVolume(volume)
-  }, [isMuted, setYouTubeMuted, setYouTubeVolume, volume])
+    setIsMuted(prev => {
+      const newMuted = !prev
+      setYouTubeMuted(newMuted)
+      if (!newMuted) {
+        setYouTubeVolume(volume)
+      }
+      return newMuted
+    })
+    resetHideTimer()
+  }, [volume, setYouTubeMuted, setYouTubeVolume, resetHideTimer])
+
+  // Mobile: handle volume icon click
+  const handleVolumeIconClick = useCallback(() => {
+    if (isMobile) {
+      if (!showVolumeSlider) {
+        setShowVolumeSlider(true)
+        resetHideTimer()
+      } else {
+        toggleMute()
+        resetHideTimer()
+      }
+    } else {
+      toggleMute()
+    }
+  }, [isMobile, showVolumeSlider, toggleMute, resetHideTimer])
 
   const handleActivity = useCallback(() => {
     setControlsVisible(true)
@@ -2175,14 +2229,30 @@ export function SyncedVideoPlayer({
     }
   }, [handleActivity])
 
-  const getVolumeIcon = () => {
-    if (isMuted || volume === 0) return <VolumeX className={isMobile ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
-    if (volume < 30) return <Volume className={isMobile ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
-    if (volume < 70) return <Volume1 className={isMobile ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
-    return <Volume2 className={isMobile ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
-  }
+  const getVolumeIcon = useCallback((cls = 'h-4 w-4') => {
+    if (isMuted || volume === 0) return <VolumeX className={cls} />
+    if (volume < 30) return <Volume className={cls} />
+    if (volume < 70) return <Volume1 className={cls} />
+    return <Volume2 className={cls} />
+  }, [isMuted, volume])
 
   const isLastInCycle = currentProgram && cycleInfo.total ? cycleInfo.current === cycleInfo.total : false
+
+  const iconCls = isMobile ? 'h-5 w-5' : 'h-4 w-4'
+  // Format seconds → M:SS
+  const fmtTime = (sec: number): string => {
+    if (!sec || isNaN(sec) || sec < 0) return '0:00'
+    
+    const hours = Math.floor(sec / 3600)
+    const minutes = Math.floor((sec % 3600) / 60)
+    const seconds = Math.floor(sec % 60)
+    
+    if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+    }
+    
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
 
   return (
     <div className="relative flex items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black min-h-screen w-full overflow-hidden">
@@ -2349,12 +2419,12 @@ export function SyncedVideoPlayer({
               </motion.div>
               
               {/* Program Overlay - Shows every 2-3 minutes */}
-              <ProgramOverlay
-                currentProgram={currentProgram}
-                nextProgram={nextProgram}
-                isVisible={showProgramOverlay}
-                isMobile={isMobile}
-              />
+          <ProgramOverlay
+            currentProgram={currentProgram}
+            nextProgram={nextProgram}
+            isVisible={showProgramOverlay}
+            isMobile={isMobile}
+          />
 
               {/* BOTTOM TICKER - Commented out per requirements */}
               {false && showTicker && (
@@ -2369,7 +2439,7 @@ export function SyncedVideoPlayer({
                   }`}>
                     <div className="relative h-full flex items-center px-2 md:px-4">
                       <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-                      </div>
+        </div>
 
                       {!isMobile && (
                         <>
@@ -2443,54 +2513,152 @@ export function SyncedVideoPlayer({
 
         {/* Bottom Controls - OUTSIDE video frame - ALWAYS VISIBLE - Unified with iframe */}
         {/* {!showStartScreen && !isLoading && !apiError && playerReady && currentProgram && ( */}
-          <div className="w-full">
-                <div className={`bg-black/60 backdrop-blur-xl border border-white/10 border-t-0 rounded-b-2xl md:rounded-b-3xl ${
+        <div className="w-full">
+                <div className={`bg-black/60 backdrop-blur-xl border-0 rounded-none ${
                   isMobile ? 'px-3 py-2' : 'px-6 py-4'
-                }`}>
-                  <div className="flex items-center justify-between gap-2 md:gap-4">
+          }`}>{/* top row: logo/actions, no rounding to merge with volume bar */}
+            <div className="flex items-center justify-between gap-2 md:gap-4">
                     {/* Logo Section - Replaces sound bar */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <img 
-                        src="/DeeniTV-V-2.png" 
-                        alt="Deeni.tv"
-                        className={isMobile ? 'h-5' : 'h-7'}
-                      />
-                    </div>
-
-                    {/* Action Buttons - Order: Schedule, History, Language, Refresh, Menu */}
-                    <div className="flex items-center gap-1 md:gap-2">
-                      {[
-                        { icon: Calendar, onClick: () => onOpenSchedule?.(), title: "Today's Schedule" },
-                        { icon: History, onClick: () => setShowPreviousModal(true), title: 'Watched Program' },
-                        { icon: Globe, onClick: () => handleOpenChannelSelector(), title: 'Language' },
-                        { icon: RefreshCw, onClick: handleReload, title: 'Refresh' },
-                        { icon: MoreHorizontal, onClick: onMenuOpen, title: 'Menu' },
-                      ].map((item, index) => (
-                        <motion.div
-                          key={index}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={item.onClick}
-                            className={`text-white/90 hover:bg-white/20 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 ${
-                              isMobile ? 'h-7 w-7' : 'h-10 w-10'
-                            }`}
-                            title={item.title}
-                          >
-                            <item.icon className={isMobile ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
-                          </Button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <img 
+                  src="/DeeniTV-V-2.png" 
+                  alt="Deeni.tv"
+                  className={isMobile ? 'h-5' : 'h-7'}
+                />
               </div>
-        {/* )} */}
 
-        {/* Program Info Section - REMOVED to match web style (no extra content below iframe) */}
+                    {/* Action Buttons - Order: Schedule, History, Channel, Refresh, Menu */}
+              <div className="flex items-center gap-1 md:gap-2">
+                {[
+                  { icon: Calendar, onClick: () => onOpenSchedule?.(), title: "Programs Schedule" },
+                  { icon: History, onClick: () => setShowPreviousModal(true), title: 'Watched Program' },
+                  { icon: Globe, onClick: () => handleOpenChannelSelector(), title: 'Channel' },
+                  { icon: RefreshCw, onClick: handleReload, title: 'Refresh' },
+                  { icon: MoreHorizontal, onClick: onMenuOpen, title: 'Menu' },
+                ].map((item, index) => (
+                  <motion.div
+                    key={index}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={item.onClick}
+                      className={`text-white/90 hover:bg-white/20 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 ${
+                        isMobile ? 'h-7 w-7' : 'h-10 w-10'
+                      }`}
+                      title={item.title}
+                    >
+                      <item.icon className={isMobile ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sound/Volume Control Bar - Separate row below - Always visible */}
+          <div className={`bg-black/60 backdrop-blur-xl border-0 rounded-b-2xl md:rounded-b-3xl ${
+            isMobile ? 'px-3 py-2' : 'px-6 py-3'
+          }`}>{/* volume bar bottom row with rounded bottom corners */}
+            <div className="flex items-center gap-2">
+              {/* Volume icon + slider */}
+              <div 
+                className="relative flex items-center gap-1 flex-1"
+                onMouseEnter={() => {
+                  if (!isMobile) {
+                    setShowVolumeSlider(true)
+                    resetHideTimer()
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (!isMobile) resetHideTimer()
+                }}
+                onClick={() => {
+                  // allow mobile users to tap anywhere in the row to show slider
+                  if (isMobile && !showVolumeSlider) {
+                    setShowVolumeSlider(true)
+                    resetHideTimer()
+                  }
+                }}
+              >
+                <button
+                  onClick={handleVolumeIconClick}
+                  onMouseEnter={() => {
+                    // ensure immediate show when hovering the icon itself
+                    if (!isMobile) {
+                      setShowVolumeSlider(true)
+                      resetHideTimer()
+                    }
+                  }}
+                  className={`cursor-pointer text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0 ${
+                    isMobile ? 'h-8 w-8' : 'h-9 w-9'
+                  }`}
+                  aria-label={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {getVolumeIcon(iconCls)}
+                </button>
+
+                {/* Volume slider - desktop hover & mobile tap */}
+                <AnimatePresence>
+                  {showVolumeSlider && (
+                    <motion.div
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: isMobile ? 100 : 200 }}
+                      exit={{ opacity: 0, width: 0 }}
+                      // make animation snappier
+                      transition={{ duration: 0.1 }}
+                      className="overflow-visible px-1"
+                    >
+                      <Slider
+                        value={[isMuted ? 0 : volume]}
+                        min={0}
+                        max={100}
+                        step={1}
+                        onValueChange={handleVolumeChange}
+                        className="w-full"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Volume percentage (always visible on desktop, only when slider shown on mobile) */}
+                {(!isMobile || showVolumeSlider) && (
+                  <span className={`text-white/50 font-mono tabular-nums ${isMobile ? 'text-[11px]' : 'text-xs'}`}>
+                    {isMuted ? 0 : volume}%
+                  </span>
+                )}
+              </div>
+
+
+              {/* Time display on the right - Only show when player is ready */}
+              {playerReady && currentProgram && (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className={`flex items-center gap-1.5 px-2 py-1 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 ${
+                    isMobile ? 'text-[10px]' : 'text-xs'
+                  }`}>
+                    <Clock className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+                    <span className="text-white font-medium whitespace-nowrap">
+                      {displayTime} / {fmtTime(videoDuration)}
+                    </span>
+                  </div>
+                  
+                  {/* {timeRemaining && (
+                    <div className={`flex items-center gap-1.5 px-2 py-1 bg-primary/10 backdrop-blur-sm rounded-lg border border-primary/30 ${
+                      isMobile ? 'text-[10px]' : 'text-xs'
+                    }`}>
+                      <Hourglass className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+                      <span className="text-primary font-medium whitespace-nowrap">
+                        {timeRemaining}
+                      </span>
+                    </div>
+                  )} */}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Channel Selector Modal */}
@@ -2523,7 +2691,7 @@ export function SyncedVideoPlayer({
           setYouTubeMuted(false)
           setIsMuted(false)
           setMainPlayerPaused(false)
-          // Do NOT close the previously watched modal - it stays open
+          // Do NOT close the Previous Programs modal - it stays open
           // Do NOT reload or restart the live TV
         }}
       />
